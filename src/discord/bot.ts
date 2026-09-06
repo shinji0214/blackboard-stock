@@ -29,9 +29,11 @@ import {
   formatContribution,
   formatGoal,
   formatHumanFact,
+  formatProgressText,
   formatQuiescence,
   formatSessionSummary,
   formatStatus,
+  formatToolActivity,
 } from "./format.js";
 
 const HAIKU_MODEL = "claude-haiku-4-5";
@@ -116,7 +118,58 @@ export async function startBot(config: BotConfig): Promise<Client> {
 
   const runOneTurn = async (): Promise<{ quiescent: boolean }> => {
     const blackboard = await loadBlackboard(config.blackboardPath);
-    const result = await runTurn(blackboard, experts, scorer, generator);
+    const channel = await getChannel();
+
+    // --- 「考え中」進捗メッセージ(3秒以上かかったら表示し、10秒ごとに更新)---
+    const startedAt = Date.now();
+    let currentExpert: string | null = null;
+    const recentTools: string[] = [];
+    let statusMsg: Message | null = null;
+    let lastRenderAt = 0;
+
+    const renderStatus = async (): Promise<void> => {
+      // Discord の編集レート制限を避けるため最短4秒間隔に絞る
+      if (Date.now() - lastRenderAt < 4_000) return;
+      lastRenderAt = Date.now();
+      const text = formatProgressText({
+        expert: currentExpert,
+        elapsedMs: Date.now() - startedAt,
+        recentTools,
+      });
+      try {
+        if (statusMsg) await statusMsg.edit(text);
+        else statusMsg = await channel.send(text);
+      } catch {
+        /* 編集失敗(削除済み・レート制限)は無視 */
+      }
+    };
+    const firstShow = setTimeout(() => void renderStatus(), 3_000);
+    const ticker = setInterval(() => void renderStatus(), 10_000);
+    let cleaned = false;
+    const clearStatus = async (): Promise<void> => {
+      if (cleaned) return;
+      cleaned = true;
+      clearTimeout(firstShow);
+      clearInterval(ticker);
+      if (statusMsg) await statusMsg.delete().catch(() => {});
+    };
+
+    let result: Awaited<ReturnType<typeof runTurn>>;
+    try {
+      result = await runTurn(blackboard, experts, scorer, generator, {
+        onProgress: (event) => {
+          if (event.phase === "speaker-selected" || event.phase === "generating") {
+            currentExpert = event.expert;
+          } else if (event.phase === "tool-use") {
+            recentTools.push(formatToolActivity(event.tool, event.detail));
+            if (recentTools.length > 6) recentTools.shift();
+            void renderStatus(); // 検索クエリが出たらすぐ反映
+          }
+        },
+      });
+    } finally {
+      await clearStatus();
+    }
 
     const runLog = buildFiringRunLog({
       blackboard,

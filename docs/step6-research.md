@@ -56,6 +56,21 @@ Agent SDK では `allowedTools` は「自動承認リスト」であって**制�
 - 承認は「そのターンを回してよいか」の粒度。ターン内の個々の WebSearch 呼び出しは
   `permissionMode: bypassPermissions` + `allowedTools` で自動実行される。
 
+## 進捗表示(「考え中」の可視化)
+
+長い調査ターンで「Bot が生きているか」を分かるようにする。
+
+- `runTurn(..., { onProgress })` が同期イベントを流す:
+  `scoring` → `speaker-selected` → `generating` → `tool-use`(検索クエリ / URL 付き)
+- `AgentSdkGenerator.generate(req, { onToolUse })` が `query()` ストリームの `tool_use` ブロックを
+  見た時に `onToolUse(name, detail)` を呼ぶ(`toolDetail()` が `input.query` / `input.url` を抽出)
+- Discord Bot(`runOneTurn`): 3秒以上かかったら進捗メッセージを1本 `send`、
+  10秒ごと(+ツール使用時、最短4秒間隔)に `edit` で更新。ターン完了/エラー時に `delete`
+  - 採点中: `⏳ 各専門家が自己採点中… (0:08)`
+  - 生成中: `⏳ ファンダメンタルズ専門家 が回答を作成中… (1:24)` + 直近3件の `🔎 <クエリ>` / `📄 <URL>`
+- CLI(`npm run turn`)も `onProgress` を stderr に出す(`  … WebSearch: ...`)
+- 整形は `src/discord/format.ts` の `formatProgressText()` / `formatToolActivity()`(純粋関数)
+
 ## 記録
 
 - `blackboard` の `facts[].sources` / `proposals[].sources`(schema.md 参照)

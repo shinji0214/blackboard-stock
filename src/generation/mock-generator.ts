@@ -1,6 +1,7 @@
 import {
   normalizeContribution,
   type Contribution,
+  type GenerateOptions,
   type GenerateRequest,
   type GenerateResult,
   type Generator,
@@ -22,7 +23,7 @@ export interface MockGeneratorOptions {
 export class MockGenerator implements Generator {
   constructor(private readonly opts: MockGeneratorOptions = {}) {}
 
-  async generate(req: GenerateRequest): Promise<GenerateResult> {
+  async generate(req: GenerateRequest, _options?: GenerateOptions): Promise<GenerateResult> {
     const template =
       this.opts.byExpertName?.[req.expert.name] ??
       this.opts.contribution ?? {

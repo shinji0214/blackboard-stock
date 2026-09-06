@@ -25,6 +25,15 @@ import {
  * 黒板の保存(JSON 上書き)は呼び出し側の責務。
  */
 
+/**
+ * ターン進行中の進捗イベント。長い調査ターンで「考え中である旨」を UI に流すために使う。
+ */
+export type TurnProgressEvent =
+  | { phase: "scoring" }
+  | { phase: "speaker-selected"; expert: string; score: number }
+  | { phase: "generating"; expert: string }
+  | { phase: "tool-use"; expert: string; tool: string; detail?: string };
+
 export interface RunTurnOptions {
   /** 自己採点時の黒板要約オプション */
   scoringSummary?: SummaryOptions;
@@ -34,6 +43,8 @@ export interface RunTurnOptions {
   tieBreak?: SelectSpeakerOptions["tieBreak"];
   /** applyContribution に渡すタイムスタンプ生成関数(テスト用) */
   now?: () => string;
+  /** 進捗通知(採点開始 → 発言者決定 → 生成中 → ツール使用)。同期的に呼ばれる */
+  onProgress?: (event: TurnProgressEvent) => void;
 }
 
 export interface TurnContribution {
@@ -60,6 +71,9 @@ export async function runTurn(
   generator: Generator,
   options: RunTurnOptions = {},
 ): Promise<TurnResult> {
+  const progress = options.onProgress ?? (() => {});
+
+  progress({ phase: "scoring" });
   const decision = await selectSpeaker(experts, blackboard, scorer, {
     summary: options.scoringSummary,
     tieBreak: options.tieBreak,
@@ -74,13 +88,24 @@ export async function runTurn(
     };
   }
 
+  const speaker = decision.speaker;
+  progress({
+    phase: "speaker-selected",
+    expert: speaker.name,
+    score: decision.scores[0]?.result.score ?? 0,
+  });
+
   const request = makeGenerateRequest(
-    decision.speaker,
+    speaker,
     blackboard,
     options.generationSummary ?? GENERATION_SUMMARY_OPTIONS,
   );
-  const result = await generator.generate(request);
-  const applied = applyContribution(blackboard, decision.speaker, result.contribution, options.now);
+  progress({ phase: "generating", expert: speaker.name });
+  const result = await generator.generate(request, {
+    onToolUse: (tool, detail) =>
+      progress({ phase: "tool-use", expert: speaker.name, tool, detail }),
+  });
+  const applied = applyContribution(blackboard, speaker, result.contribution, options.now);
 
   return {
     decision,

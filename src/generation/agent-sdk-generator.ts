@@ -3,6 +3,7 @@ import {
   buildGenerationUserPrompt,
   isEmptyContribution,
   parseContribution,
+  type GenerateOptions,
   type GenerateRequest,
   type GenerateResult,
   type Generator,
@@ -40,7 +41,7 @@ export class AgentSdkGenerator implements Generator {
     this.researchMaxTurns = opts.researchMaxTurns ?? 8;
   }
 
-  async generate(req: GenerateRequest): Promise<GenerateResult> {
+  async generate(req: GenerateRequest, options: GenerateOptions = {}): Promise<GenerateResult> {
     const { query } = await import("@anthropic-ai/claude-agent-sdk");
     const systemPrompt = buildGenerationSystemPrompt(req.expert);
     const tools = req.expert.tools ?? [];
@@ -68,6 +69,7 @@ export class AgentSdkGenerator implements Generator {
               text += block.text;
             } else if (block.type === "tool_use") {
               toolUses[block.name] = (toolUses[block.name] ?? 0) + 1;
+              options.onToolUse?.(block.name, toolDetail(block.name, block.input));
             }
           }
         } else if (message.type === "result" && message.subtype === "success") {
@@ -97,6 +99,16 @@ proposals / facts / open_questions を持つ JSON オブジェクトだけを出
       );
     }
   }
+}
+
+/** tool_use ブロックの input から進捗表示用の一言(検索クエリ / URL)を取り出す */
+function toolDetail(name: string, input: unknown): string | undefined {
+  if (!input || typeof input !== "object") return undefined;
+  const rec = input as Record<string, unknown>;
+  if (name === "WebSearch" && typeof rec.query === "string") return rec.query;
+  if (name === "WebFetch" && typeof rec.url === "string") return rec.url;
+  if (name === "WebFetch" && typeof rec.prompt === "string") return rec.prompt;
+  return undefined;
 }
 
 function withToolUses(result: GenerateResult, toolUses: Record<string, number>): GenerateResult {

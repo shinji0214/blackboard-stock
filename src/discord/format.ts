@@ -105,6 +105,33 @@ export function formatGoal(blackboard: Blackboard): EmbedBuilder {
     .setFooter({ text: `session: ${blackboard.session_id} · 免責: 投資助言ではありません` });
 }
 
+/** ツール使用イベントを進捗行に整形する */
+export function formatToolActivity(tool: string, detail?: string): string {
+  const label = detail ? truncate(detail, 120) : undefined;
+  if (tool === "WebSearch") return `🔎 ${label ?? "検索中"}`;
+  if (tool === "WebFetch") return `📄 ${label ?? "ページ取得中"}`;
+  return `🔧 ${tool}${label ? `: ${label}` : ""}`;
+}
+
+export interface ProgressView {
+  /** 生成フェーズに入っていれば専門家名。採点フェーズ中は null */
+  expert: string | null;
+  elapsedMs: number;
+  /** formatToolActivity() で整形済みの直近の行 */
+  recentTools: string[];
+}
+
+/** 「考え中」進捗メッセージ(プレーンテキスト。編集で更新する想定) */
+export function formatProgressText(view: ProgressView): string {
+  const totalSec = Math.floor(view.elapsedMs / 1000);
+  const clock = `${Math.floor(totalSec / 60)}:${String(totalSec % 60).padStart(2, "0")}`;
+  const head = view.expert
+    ? `⏳ ${view.expert} が回答を作成中… (${clock})`
+    : `⏳ 各専門家が自己採点中… (${clock})`;
+  const tail = view.recentTools.slice(-3).map((t) => `　${t}`);
+  return [head, ...tail].join("\n");
+}
+
 /** 次のターンを実行してよいかの確認(👍 / ⏹️ のリアクション、または !next / !stop) */
 export function formatApprovalRequest(nextTurn: number, blackboard: Blackboard): EmbedBuilder {
   return new EmbedBuilder()

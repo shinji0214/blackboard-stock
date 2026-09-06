@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { runTurn } from "../src/controller/turn.js";
+import { runTurn, type TurnProgressEvent } from "../src/controller/turn.js";
 import { MockScorer } from "../src/scoring/mock-scorer.js";
 import { MockGenerator } from "../src/generation/mock-generator.js";
+import { normalizeContribution, type Generator } from "../src/generation/generator.js";
 import { makeBlackboard, makeExpert } from "./fixtures.js";
 import type { Expert } from "../src/types.js";
 
@@ -47,6 +48,43 @@ describe("runTurn", () => {
     const result = await runTurn(bb, experts, new MockScorer({ fixedScore: 1 }), new MockGenerator(), { now: NOW });
     expect(result.quiescent).toBe(true);
     expect(result.sessionComplete).toBe(false);
+  });
+
+  it("onProgress が 採点 → 発言者決定 → 生成 → ツール使用 の順で発火する", async () => {
+    const events: TurnProgressEvent[] = [];
+    const researchGen: Generator = {
+      async generate(_req, options) {
+        options?.onToolUse?.("WebSearch", "NVDA Q2");
+        options?.onToolUse?.("WebFetch", "https://sec.gov/x");
+        return {
+          contribution: normalizeContribution({ proposals: [{ content: "調査結果", confidence: 6 }] }),
+          raw: "",
+        };
+      },
+    };
+
+    await runTurn(
+      makeBlackboard(),
+      experts,
+      new MockScorer({ byExpertName: { ファンダメンタルズ: 9, テクニカル: 3, リスク: 2 } }),
+      researchGen,
+      { now: NOW, onProgress: (e) => events.push(e) },
+    );
+
+    expect(events[0]).toEqual({ phase: "scoring" });
+    expect(events[1]).toMatchObject({ phase: "speaker-selected", expert: "ファンダメンタルズ", score: 9 });
+    expect(events[2]).toEqual({ phase: "generating", expert: "ファンダメンタルズ" });
+    expect(events[3]).toEqual({ phase: "tool-use", expert: "ファンダメンタルズ", tool: "WebSearch", detail: "NVDA Q2" });
+    expect(events[4]).toMatchObject({ phase: "tool-use", tool: "WebFetch", detail: "https://sec.gov/x" });
+  });
+
+  it("quiescence 時は onProgress が scoring のみ", async () => {
+    const events: TurnProgressEvent[] = [];
+    await runTurn(makeBlackboard(), experts, new MockScorer({ fixedScore: 2 }), new MockGenerator(), {
+      now: NOW,
+      onProgress: (e) => events.push(e),
+    });
+    expect(events).toEqual([{ phase: "scoring" }]);
   });
 
   it("複数ターンを回すと黒板が育ち、turn 番号が増える", async () => {

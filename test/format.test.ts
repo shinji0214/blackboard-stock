@@ -3,9 +3,11 @@ import {
   formatApprovalRequest,
   formatContribution,
   formatHumanFact,
+  formatProgressText,
   formatQuiescence,
   formatSessionSummary,
   formatStatus,
+  formatToolActivity,
 } from "../src/discord/format.js";
 import { applyContribution } from "../src/blackboard/apply.js";
 import { normalizeContribution } from "../src/generation/generator.js";
@@ -120,6 +122,34 @@ describe("その他の整形", () => {
     const data = formatSessionSummary("まとめ本文", makeBlackboard()).toJSON();
     expect(data.description).toBe("まとめ本文");
     expect(data.footer?.text).toContain("投資助言ではありません");
+  });
+
+  it("formatToolActivity はツール種別ごとにアイコンを付ける", () => {
+    expect(formatToolActivity("WebSearch", "NVDA earnings")).toBe("🔎 NVDA earnings");
+    expect(formatToolActivity("WebFetch", "https://sec.gov/x")).toBe("📄 https://sec.gov/x");
+    expect(formatToolActivity("WebSearch")).toBe("🔎 検索中");
+    expect(formatToolActivity("Foo", "bar")).toBe("🔧 Foo: bar");
+  });
+
+  describe("formatProgressText", () => {
+    it("採点フェーズは専門家名なしで経過時間を出す", () => {
+      const t = formatProgressText({ expert: null, elapsedMs: 8_000, recentTools: [] });
+      expect(t).toContain("自己採点中");
+      expect(t).toContain("(0:08)");
+    });
+
+    it("生成フェーズは専門家名 + 直近3件のツール行", () => {
+      const t = formatProgressText({
+        expert: "ファンダメンタルズ専門家",
+        elapsedMs: 95_000,
+        recentTools: ["🔎 a", "🔎 b", "🔎 c", "🔎 d"],
+      });
+      expect(t).toContain("ファンダメンタルズ専門家 が回答を作成中");
+      expect(t).toContain("(1:35)");
+      expect(t).not.toContain("🔎 a");
+      expect(t).toContain("🔎 d");
+      expect(t.split("\n")).toHaveLength(4); // 見出し + 3行
+    });
   });
 
   it("formatApprovalRequest は実行対象ターンと操作方法を示す", () => {

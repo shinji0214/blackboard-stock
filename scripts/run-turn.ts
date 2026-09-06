@@ -63,7 +63,16 @@ async function main(): Promise<void> {
   }
 
   for (let i = 1; i <= maxTurns; i += 1) {
-    const result = await runTurn(blackboard, experts, scorer, generator);
+    const result = await runTurn(blackboard, experts, scorer, generator, {
+      onProgress: (event) => {
+        if (emitJson) return;
+        if (event.phase === "scoring") process.stderr.write("  … 自己採点中\n");
+        else if (event.phase === "generating") process.stderr.write(`  … ${event.expert} が回答作成中\n`);
+        else if (event.phase === "tool-use") {
+          process.stderr.write(`  … ${event.tool}${event.detail ? `: ${event.detail}` : ""}\n`);
+        }
+      },
+    });
 
     const runLog = buildFiringRunLog({
       blackboard,

@@ -52,8 +52,13 @@ export interface GenerateResult {
   tool_uses?: Record<string, number>;
 }
 
+export interface GenerateOptions {
+  /** ツール呼び出しが発生するたびに同期的に呼ばれる(進捗表示用)。detail は検索クエリや URL */
+  onToolUse?: (tool: string, detail?: string) => void;
+}
+
 export interface Generator {
-  generate(req: GenerateRequest): Promise<GenerateResult>;
+  generate(req: GenerateRequest, options?: GenerateOptions): Promise<GenerateResult>;
 }
 
 /** 生成時は自己採点時より広めに黒板を見せる */
