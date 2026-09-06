@@ -2,12 +2,14 @@ import { clampScore, type ScoreRequest, type ScoreResult, type Scorer } from "./
 
 /**
  * API キー・課金なしで動く決定論的スコアラー。
- * ユニットテストとオフラインでの発火判定ロジック確認に使う。
+ * ユニットテストとオフライン(Mock)での発火判定・進行の確認に使う。
  *
  * 優先順位:
  *   1. byExpertName に一致すればその値
  *   2. fixedScore が指定されていればその値
- *   3. 役割説明の文字バイグラムが黒板要約にどれだけ現れるか(カバレッジ率)から擬似スコアを生成
+ *   3. 既定: 黒板要約に含まれる提案数で逓減するスコア
+ *      提案 0件→9 / 1件→7 / 2件→5 / 3件以上→3
+ *      これにより Mock でも「数ターン発言 → 全員が閾値割れで quiescence → 要約」まで一通り再現できる。
  */
 
 export interface MockScorerOptions {
@@ -28,29 +30,17 @@ export class MockScorer implements Scorer {
       const s = clampScore(this.opts.fixedScore);
       return { score: s, raw: `mock:fixed=${s}`, reason: "mock(固定値)" };
     }
-    const s = coverageScore(req.expert.role_description, req.blackboardSummary);
-    return { score: s, raw: `mock:coverage=${s}`, reason: "mock(役割語の黒板カバレッジ)" };
+    const proposals = countProposals(req.blackboardSummary);
+    const s = clampScore(9 - proposals * 2);
+    return {
+      score: s,
+      raw: `mock:decay(proposals=${proposals})=${s}`,
+      reason: `mock(提案${proposals}件で逓減)`,
+    };
   }
 }
 
-function bigrams(s: string): Set<string> {
-  const clean = s.replace(/\s+/g, "");
-  const out = new Set<string>();
-  for (let i = 0; i < clean.length - 1; i += 1) {
-    out.add(clean.slice(i, i + 2));
-  }
-  return out;
-}
-
-function coverageScore(role: string, summary: string): number {
-  const roleGrams = bigrams(role);
-  const summaryGrams = bigrams(summary);
-  if (roleGrams.size === 0 || summaryGrams.size === 0) return 0;
-  let covered = 0;
-  for (const g of roleGrams) {
-    if (summaryGrams.has(g)) covered += 1;
-  }
-  // 役割説明のバイグラムのうち黒板に登場する割合。実測で概ね 0〜0.5 に収まるため 20 倍して展開する。
-  const ratio = covered / roleGrams.size;
-  return clampScore(ratio * 20);
+/** 黒板要約に含まれる提案の件数を数える(summarizeBlackboard の "自信度N" 表記を利用) */
+function countProposals(summary: string): number {
+  return (summary.match(/自信度\d/g) ?? []).length;
 }

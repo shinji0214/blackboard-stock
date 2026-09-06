@@ -60,13 +60,15 @@ describe("MockScorer", () => {
     expect((await scorer.score({ expert: makeExpert({ name: "B" }), blackboardSummary: "x" })).score).toBe(4);
   });
 
-  it("指定なしでも決定論的なスコアを返す(同入力→同出力)", async () => {
+  it("指定なしでは黒板の提案数で逓減する(0件→9, 2件→5)", async () => {
     const scorer = new MockScorer();
-    const req = { expert: makeExpert({ role_description: "金利と景気動向の専門家" }), blackboardSummary: "金利動向と景気サイクルが論点" };
-    const a = await scorer.score(req);
-    const b = await scorer.score(req);
-    expect(a.score).toBe(b.score);
-    expect(a.score).toBeGreaterThanOrEqual(0);
-    expect(a.score).toBeLessThanOrEqual(10);
+    const empty = await scorer.score({ expert: makeExpert(), blackboardSummary: "お題: X\n未解決の論点: なし" });
+    expect(empty.score).toBe(9);
+
+    const withTwo = await scorer.score({
+      expert: makeExpert(),
+      blackboardSummary: "- [p1] A 自信度7: ...\n- [p2] B 自信度6: ...",
+    });
+    expect(withTwo.score).toBe(5);
   });
 });
