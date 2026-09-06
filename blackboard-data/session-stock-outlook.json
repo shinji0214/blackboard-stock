@@ -1,0 +1,48 @@
+{
+  "session_id": "2026-09-06_stock-outlook-001",
+  "goal": "架空の銘柄Xについて、複数の専門家の視点で買い時かどうかを議論する",
+  "created_at": "2026-09-06T10:00:00+09:00",
+  "updated_at": "2026-09-06T10:12:00+09:00",
+  "status": "in_progress",
+  "facts": [
+    {
+      "id": "f1",
+      "content": "直近の四半期決算で売上が前年比+12%、営業利益率は横ばい",
+      "source": "human",
+      "added_at": "2026-09-06T10:02:00+09:00"
+    },
+    {
+      "id": "f2",
+      "content": "株価は過去3か月で25日移動平均線を上回って推移、出来高は増加傾向",
+      "source": "human",
+      "added_at": "2026-09-06T10:03:00+09:00"
+    }
+  ],
+  "proposals": [
+    {
+      "id": "p1",
+      "author": "テクニカル専門家",
+      "content": "移動平均線が上向きで出来高も伴っており、短期的には強気に見える",
+      "confidence": 7,
+      "added_at": "2026-09-06T10:05:00+09:00",
+      "responds_to": null
+    }
+  ],
+  "open_questions": [
+    {
+      "id": "q1",
+      "content": "今期のセクター全体への資金流入は増加傾向か、金利環境の影響はどうか",
+      "raised_by": "テクニカル専門家",
+      "resolved": false
+    }
+  ],
+  "history": [
+    {
+      "turn": 1,
+      "actor": "テクニカル専門家",
+      "action": "proposal_added",
+      "ref_id": "p1",
+      "timestamp": "2026-09-06T10:05:00+09:00"
+    }
+  ]
+}

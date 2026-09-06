@@ -1,0 +1,30 @@
+{
+  "name": "blackboard-stock-advisor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "黒板方式(Blackboard Architecture)マルチエージェント議論プロトタイプ",
+  "scripts": {
+    "firing": "tsx scripts/run-firing.ts",
+    "firing:mock": "tsx scripts/run-firing.ts --mock",
+    "turn": "tsx scripts/run-turn.ts",
+    "turn:mock": "tsx scripts/run-turn.ts --mock",
+    "bot": "tsx scripts/run-bot.ts",
+    "bot:mock": "tsx scripts/run-bot.ts --mock",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.0",
+    "discord.js": "^14.27.0",
+    "dotenv": "^17.4.2",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.23.0",
+    "typescript": "~5.7.0",
+    "vitest": "^4.1.0"
+  }
+}

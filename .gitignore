@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.log
+logs/
+.env
+blackboard-data/session-live.json
+.DS_Store

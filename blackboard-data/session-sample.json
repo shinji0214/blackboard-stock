@@ -1,0 +1,11 @@
+{
+  "session_id": "sample-session-001",
+  "goal": "架空の銘柄Xについて、複数の専門家の視点で買い時かどうかを議論する(サンプル)",
+  "created_at": "2026-09-06T10:00:00+09:00",
+  "updated_at": "2026-09-06T10:00:00+09:00",
+  "status": "in_progress",
+  "facts": [],
+  "proposals": [],
+  "open_questions": [],
+  "history": []
+}
