@@ -306,16 +306,44 @@ export async function startBot(config: BotConfig): Promise<Client> {
     });
   };
 
-  client.once(Events.ClientReady, (c) => {
+  client.once(Events.ClientReady, async (c) => {
     console.log(
-      `ログイン: ${c.user.tag}  チャンネル: ${config.channelId}  ${config.useMock ? "[Mock]" : "[AgentSdk]"}`,
+      `ログイン: ${c.user.tag}  ${config.useMock ? "[Mock]" : "[AgentSdk]"}`,
     );
+    console.log(`参加サーバー: ${[...c.guilds.cache.values()].map((g) => g.name).join(", ") || "(なし)"}`);
+    try {
+      const channel = await c.channels.fetch(config.channelId);
+      if (!channel) {
+        console.error(`⚠️ チャンネル ${config.channelId} が見つかりません。DISCORD_CHANNEL_ID を確認してください。`);
+      } else if (!channel.isSendable()) {
+        console.error(`⚠️ チャンネル ${config.channelId} に送信できません(権限を確認してください)。`);
+      } else {
+        const name = "name" in channel ? channel.name : channel.id;
+        console.log(`投稿先チャンネル: #${name} (${config.channelId})  待機中。Discord で !goal <お題> を送ってください。`);
+      }
+    } catch (err) {
+      console.error(`⚠️ チャンネル取得に失敗: ${(err as Error).message}`);
+    }
   });
 
   client.on(Events.MessageCreate, (message) => {
     if (message.author.bot) return;
-    if (message.channelId !== config.channelId) return;
+
+    if (message.channelId !== config.channelId) {
+      console.log(`[別チャンネル ${message.channelId} のメッセージを無視] 想定は ${config.channelId}`);
+      return;
+    }
+
     const content = message.content.trim();
+    console.log(`[受信] ${message.author.tag}: ${JSON.stringify(message.content)} (${message.content.length}文字)`);
+
+    if (message.content.length === 0) {
+      console.error(
+        "⚠️ メッセージ本文が空です。Discord Developer Portal の Bot 設定で " +
+          "MESSAGE CONTENT INTENT を ON にして Bot を再起動してください。",
+      );
+      return;
+    }
     if (!content) return;
 
     if (content.startsWith("!")) {
@@ -348,6 +376,10 @@ export async function startBot(config: BotConfig): Promise<Client> {
     })();
   });
 
+  client.on(Events.Error, (err) => console.error(`Discord クライアントエラー: ${err.message}`));
+  client.on(Events.Warn, (msg) => console.warn(`Discord 警告: ${msg}`));
+
+  console.log("Discord に接続中...");
   await client.login(config.token);
   return client;
 }
